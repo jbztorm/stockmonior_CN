@@ -1,7 +1,81 @@
-import { MOCK_STOCKS } from '@/lib/api';
+'use client';
+
+import { useState } from 'react';
+import { MOCK_STOCKS, searchStocks } from '@/lib/api';
+import { StockQuote, KLineData } from '@/types';
 import StockCard from '@/components/StockCard';
+import SearchBar from '@/components/SearchBar';
+import AlertSettings from '@/components/AlertSettings';
+import KLineChart from '@/components/KLineChart';
 
 export default function Home() {
+  const [stocks, setStocks] = useState<StockQuote[]>(MOCK_STOCKS);
+  const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
+  const [klineData, setKlineData] = useState<KLineData[]>([]);
+  const [filter, setFilter] = useState<'all' | 'CN' | 'US'>('all');
+  const [alertEnabled, setAlertEnabled] = useState(false);
+  const [alertThresholds, setAlertThresholds] = useState<number[]>([5, 7, 10]);
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setStocks(MOCK_STOCKS);
+      return;
+    }
+    const results = await searchStocks(query);
+    if (results.length > 0) {
+      setStocks(results);
+    }
+  };
+
+  const handleAddStock = (stock: StockQuote) => {
+    if (!stocks.find(s => s.symbol === stock.symbol)) {
+      setStocks([...stocks, stock]);
+    }
+  };
+
+  const handleRemoveStock = (symbol: string) => {
+    setStocks(stocks.filter(s => s.symbol !== symbol));
+    if (selectedStock?.symbol === symbol) {
+      setSelectedStock(null);
+    }
+  };
+
+  const handleSelectStock = (stock: StockQuote) => {
+    setSelectedStock(stock);
+    // Generate mock K-line data for the selected stock
+    const data: KLineData[] = [];
+    let basePrice = stock.price;
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    
+    for (let i = 30; i >= 0; i--) {
+      const volatility = 0.03;
+      const change = (Math.random() - 0.5) * 2 * volatility;
+      const open = basePrice * (1 - change * 0.5);
+      const close = basePrice * (1 + change);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.02);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.02);
+      const volume = Math.floor(10000000 + Math.random() * 50000000);
+      
+      data.push({
+        time: Math.floor((now - i * dayMs) / 1000),
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume,
+      });
+      
+      basePrice = close;
+    }
+    setKlineData(data);
+  };
+
+  const filteredStocks = stocks.filter(stock => {
+    if (filter === 'all') return true;
+    return stock.market === filter;
+  });
+
   return (
     <main className="min-h-screen bg-slate-900">
       {/* Header */}
@@ -17,17 +91,7 @@ export default function Home() {
               <h1 className="text-xl font-bold text-white">StockPulse</h1>
             </div>
             <div className="flex items-center gap-4">
-              <button className="p-2 text-slate-400 hover:text-white transition-colors">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </button>
-              <button className="p-2 text-slate-400 hover:text-white transition-colors">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
+              <SearchBar onSelect={handleAddStock} />
             </div>
           </div>
         </div>
@@ -37,36 +101,58 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Market Tabs */}
         <div className="flex gap-4 mb-6">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">
+          <button 
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
             全部
           </button>
-          <button className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg font-medium transition-colors">
+          <button 
+            onClick={() => setFilter('CN')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'CN' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
             A股
           </button>
-          <button className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg font-medium transition-colors">
+          <button 
+            onClick={() => setFilter('US')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'US' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
             美股
           </button>
         </div>
 
-        {/* Sort */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-slate-400">
-            共 <span className="text-white font-medium">{MOCK_STOCKS.length}</span> 只股票
-          </p>
-          <select className="bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option>涨跌幅</option>
-            <option>代码</option>
-            <option>名称</option>
-            <option>成交量</option>
-          </select>
-        </div>
-
         {/* Stock Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {MOCK_STOCKS.map((stock) => (
-            <StockCard key={stock.symbol} stock={stock} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+          {filteredStocks.map((stock) => (
+            <StockCard 
+              key={stock.symbol} 
+              stock={stock} 
+              onClick={() => handleSelectStock(stock)}
+              onRemove={() => handleRemoveStock(stock.symbol)}
+              isSelected={selectedStock?.symbol === stock.symbol}
+            />
           ))}
         </div>
+
+        {/* K-line Chart */}
+        {selectedStock && (
+          <div className="mb-6">
+            <KLineChart data={klineData} symbol={selectedStock.symbol} />
+          </div>
+        )}
+
+        {/* Alert Settings */}
+        <AlertSettings 
+          enabled={alertEnabled} 
+          onToggle={() => setAlertEnabled(!alertEnabled)}
+          onChange={setAlertThresholds}
+        />
       </div>
     </main>
   );
