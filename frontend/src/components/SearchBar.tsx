@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { StockQuote } from '@/types';
-import { searchStocks } from '@/lib/api';
+import { MOCK_STOCKS } from '@/lib/api';
 
 interface SearchBarProps {
   onSelect: (stock: StockQuote) => void;
@@ -25,17 +25,44 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Search from mock data
   useEffect(() => {
-    const search = async () => {
+    const search = () => {
       if (query.length < 1) {
         setResults([]);
         return;
       }
-      setLoading(true);
-      const data = await searchStocks(query);
-      setResults(data);
-      setLoading(false);
+      
+      // Search in mock data
+      const q = query.toLowerCase();
+      const filtered = MOCK_STOCKS.filter(
+        s => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+      );
+      
+      // Also try to find by partial match
+      if (filtered.length === 0) {
+        // Add query as potential stock symbol
+        const potentialStock: StockQuote = {
+          symbol: query.toUpperCase(),
+          name: query.toUpperCase(),
+          price: 0,
+          change: 0,
+          change_percent: 0,
+          volume: 0,
+          amount: 0,
+          high: 0,
+          low: 0,
+          open: 0,
+          prev_close: 0,
+          updated_at: new Date().toISOString(),
+          market: query.length <= 6 && /^\d+$/.test(query) ? 'CN' : 'US',
+        };
+        setResults([potentialStock]);
+      } else {
+        setResults(filtered);
+      }
     };
+    
     const debounce = setTimeout(search, 300);
     return () => clearTimeout(debounce);
   }, [query]);
@@ -47,7 +74,7 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-md">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative">
         <input
           type="text"
@@ -58,7 +85,7 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="搜索股票代码或名称..."
-          className="w-full px-4 py-2.5 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 pl-10 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <svg
           className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"
@@ -73,11 +100,6 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
           />
         </svg>
-        {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
       </div>
 
       {isOpen && results.length > 0 && (
@@ -97,6 +119,28 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
               </span>
             </button>
           ))}
+          {query.length > 0 && !results.find(r => r.symbol === query.toUpperCase()) && (
+            <button
+              onClick={() => handleSelect({
+                symbol: query.toUpperCase(),
+                name: query.toUpperCase(),
+                price: 0,
+                change: 0,
+                change_percent: 0,
+                volume: 0,
+                amount: 0,
+                high: 0,
+                low: 0,
+                open: 0,
+                prev_close: 0,
+                updated_at: new Date().toISOString(),
+                market: query.length <= 6 && /^\d+$/.test(query) ? 'CN' : 'US',
+              })}
+              className="w-full px-4 py-3 text-left hover:bg-slate-700 transition-colors text-blue-400"
+            >
+              + 添加 {query.toUpperCase()}
+            </button>
+          )}
         </div>
       )}
     </div>
