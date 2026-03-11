@@ -7,14 +7,15 @@ import { KLineData } from '@/types';
 interface KLineChartProps {
   data: KLineData[];
   symbol: string;
+  period: '1D' | '1W' | '1M' | '3M' | '1Y';
+  onPeriodChange: (period: '1D' | '1W' | '1M' | '3M' | '1Y') => void;
 }
 
-export default function KLineChart({ data, symbol }: KLineChartProps) {
+export default function KLineChart({ data, symbol, period, onPeriodChange }: KLineChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const [period, setPeriod] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1M');
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -135,7 +136,7 @@ export default function KLineChart({ data, symbol }: KLineChartProps) {
           {periods.map((p) => (
             <button
               key={p}
-              onClick={() => setPeriod(p)}
+              onClick={() => onPeriodChange(p)}
               className={`px-3 py-1 text-sm rounded transition-colors ${
                 period === p
                   ? 'bg-blue-600 text-white'
