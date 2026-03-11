@@ -1,0 +1,14 @@
+[build]
+builder = "python"
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartDelayType = "immediate"
+
+[[ports]]
+containerPort = 8000
+
+[environment]
+PYTHONUNBUFFERED = "1"
